@@ -1,0 +1,138 @@
+:root {
+  color-scheme: dark;
+  font-family: Arial, sans-serif;
+  background: #101418;
+  color: #f8fafc;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: #101418;
+}
+
+.lock {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+}
+
+.panel {
+  width: min(760px, 100%);
+  padding: 28px;
+  background: rgba(9, 12, 16, 0.84);
+  border: 1px solid rgba(248, 250, 252, 0.16);
+  border-radius: 8px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.36);
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  color: #93e6b5;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  font-size: 32px;
+  line-height: 1.15;
+}
+
+.message {
+  margin: 14px 0 22px;
+  max-width: 58ch;
+  color: #d1d5db;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.media-host {
+  overflow: hidden;
+  border: 1px solid rgba(248, 250, 252, 0.14);
+  border-radius: 8px;
+  background: #05080c;
+}
+
+.media-host iframe,
+.media-host audio,
+.media-host video {
+  display: block;
+  width: 100%;
+}
+
+.media-host iframe {
+  aspect-ratio: 16 / 9;
+  border: 0;
+}
+
+.media-host audio {
+  padding: 20px;
+}
+
+.fallback-link {
+  display: block;
+  padding: 20px;
+  color: #93e6b5;
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.button {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid rgba(248, 250, 252, 0.2);
+  border-radius: 8px;
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  font: 700 14px/1 Arial, sans-serif;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.button.primary {
+  border-color: #2dd4bf;
+  background: #0f766e;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.timer {
+  min-height: 20px;
+  margin: 14px 0 0;
+  color: #cbd5e1;
+  font-size: 14px;
+}
+
+@media (max-width: 560px) {
+  .panel {
+    padding: 20px;
+  }
+
+  h1 {
+    font-size: 25px;
+  }
+
+  .button {
+    width: 100%;
+  }
+}

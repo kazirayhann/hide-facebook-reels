@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Focus Reminder</title>
+    <link rel="stylesheet" href="focus-lock.css">
+  </head>
+  <body>
+    <main class="lock">
+      <section class="panel" aria-labelledby="title">
+        <p class="eyebrow">Focus reminder</p>
+        <h1 id="title">Take a short reset before going back.</h1>
+        <p class="message">Listen to or open this reminder first. Use the time to learn a dua, then return to your work.</p>
+
+        <div id="mediaHost" class="media-host"></div>
+
+        <div class="actions">
+          <a id="openMedia" class="button primary" target="_blank" rel="noreferrer">Open reminder</a>
+          <button id="returnButton" class="button" type="button" disabled>Return to work</button>
+        </div>
+
+        <p id="timer" class="timer" aria-live="polite"></p>
+      </section>
+    </main>
+    <script src="redirect-config.js"></script>
+    <script src="focus-lock.js"></script>
+  </body>
+</html>

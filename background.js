@@ -1,6 +1,11 @@
 importScripts("redirect-config.js");
 
 const REELS_PAGE_URL = /^https:\/\/(?:www\.)?facebook\.com\/reels?(?:\/|\?|$)/i;
+const FOCUS_ALARM_NAME = "hfr-focus-check";
+const DEFAULT_FOCUS_CHECK_MINUTES = 15;
+const DEFAULT_FOCUS_COOLDOWN_MINUTES = 20;
+let lastFocusLockAt = 0;
+let focusLockUntil = 0;
 
 function getRedirectUrl() {
   const urls = Array.isArray(globalThis.HFR_REDIRECT_URLS)
@@ -12,6 +17,112 @@ function getRedirectUrl() {
   }
 
   return urls[Math.floor(Math.random() * urls.length)];
+}
+
+function getFocusMediaUrl() {
+  const urls = Array.isArray(globalThis.HFR_FOCUS_MEDIA_URLS)
+    ? globalThis.HFR_FOCUS_MEDIA_URLS.filter(Boolean)
+    : [];
+
+  if (urls.length > 0) {
+    return urls[Math.floor(Math.random() * urls.length)];
+  }
+
+  return getRedirectUrl();
+}
+
+function isFocusTargetUrl(url) {
+  if (!url || url.startsWith(chrome.runtime.getURL(""))) {
+    return false;
+  }
+
+  let parsedUrl;
+
+  try {
+    parsedUrl = new URL(url);
+  } catch (_error) {
+    return false;
+  }
+
+  const targets = Array.isArray(globalThis.HFR_FOCUS_TARGETS)
+    ? globalThis.HFR_FOCUS_TARGETS
+    : ["facebook.com", "youtube.com", "youtu.be"];
+
+  return targets.some((target) => (
+    parsedUrl.hostname === target ||
+    parsedUrl.hostname.endsWith(`.${target}`)
+  ));
+}
+
+function getLockPageUrl(tabUrl) {
+  const params = new URLSearchParams({
+    media: getFocusMediaUrl(),
+    returnUrl: tabUrl || "https://www.google.com/"
+  });
+
+  return chrome.runtime.getURL(`focus-lock.html?${params.toString()}`);
+}
+
+function getFocusLockMs() {
+  const lockSeconds = Number(globalThis.HFR_FOCUS_LOCK_SECONDS) || 60;
+
+  return lockSeconds * 1000;
+}
+
+function isFocusLockActive() {
+  return Date.now() < focusLockUntil;
+}
+
+function shouldFocusLockNow() {
+  const cooldownMinutes = Number(globalThis.HFR_FOCUS_COOLDOWN_MINUTES) || DEFAULT_FOCUS_COOLDOWN_MINUTES;
+  const cooldownMs = cooldownMinutes * 60 * 1000;
+
+  return Date.now() - lastFocusLockAt >= cooldownMs;
+}
+
+async function runFocusCheck() {
+  if (!shouldFocusLockNow()) {
+    return;
+  }
+
+  const tabs = await chrome.tabs.query({
+    active: true,
+    lastFocusedWindow: true
+  });
+  const targetTab = tabs.find((tab) => isFocusTargetUrl(tab.url));
+
+  if (!targetTab || typeof targetTab.id !== "number") {
+    return;
+  }
+
+  lastFocusLockAt = Date.now();
+  focusLockUntil = Date.now() + getFocusLockMs();
+  await chrome.tabs.update(targetTab.id, {
+    active: true,
+    url: getLockPageUrl(targetTab.url)
+  });
+}
+
+function blockFocusTargetDuringLock(tabId, url) {
+  if (!isFocusLockActive() || !isFocusTargetUrl(url)) {
+    return false;
+  }
+
+  chrome.tabs.update(tabId, {
+    active: true,
+    url: getLockPageUrl(url)
+  });
+
+  return true;
+}
+
+function setupFocusAlarm() {
+  const periodInMinutes = Number(globalThis.HFR_FOCUS_CHECK_MINUTES) || DEFAULT_FOCUS_CHECK_MINUTES;
+
+  chrome.alarms.create(FOCUS_ALARM_NAME, {
+    delayInMinutes: 1,
+    periodInMinutes
+  });
 }
 
 function closeOriginalTab(tabId) {
@@ -29,6 +140,10 @@ function closeOriginalTab(tabId) {
 }
 
 chrome.webNavigation.onBeforeNavigate.addListener((details) => {
+  if (details.frameId === 0 && blockFocusTargetDuringLock(details.tabId, details.url)) {
+    return;
+  }
+
   if (details.frameId !== 0 || !REELS_PAGE_URL.test(details.url)) {
     return;
   }
@@ -37,3 +152,26 @@ chrome.webNavigation.onBeforeNavigate.addListener((details) => {
     closeOriginalTab(details.tabId);
   });
 });
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (changeInfo.url) {
+    blockFocusTargetDuringLock(tabId, changeInfo.url);
+  }
+});
+
+chrome.runtime.onMessage.addListener((message) => {
+  if (message && message.type === "HFR_FOCUS_UNLOCKED") {
+    focusLockUntil = 0;
+  }
+});
+
+chrome.runtime.onInstalled.addListener(setupFocusAlarm);
+chrome.runtime.onStartup.addListener(setupFocusAlarm);
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === FOCUS_ALARM_NAME) {
+    runFocusCheck();
+  }
+});
+
+setupFocusAlarm();

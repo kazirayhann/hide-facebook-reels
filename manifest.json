@@ -4,12 +4,33 @@
   "version": "1.0.0",
   "description": "Hides Facebook Reels feed sections, blocks Reels pages, and removes Sponsored sidebar sections on facebook.com.",
   "permissions": [
+    "alarms",
     "tabs",
     "webNavigation"
   ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; media-src https:; frame-src https://www.youtube.com https://youtube.com https://youtu.be;"
+  },
   "background": {
     "service_worker": "background.js"
   },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "focus-lock.html",
+        "focus-lock.css",
+        "focus-lock.js",
+        "redirect-config.js"
+      ],
+      "matches": [
+        "https://www.facebook.com/*",
+        "https://facebook.com/*",
+        "https://www.youtube.com/*",
+        "https://youtube.com/*",
+        "https://youtu.be/*"
+      ]
+    }
+  ],
   "content_scripts": [
     {
       "matches": [
