@@ -6,7 +6,46 @@
   const LOCK_MESSAGE_CLASS = "hfr-lock-message";
   const REELS_TEXT = /\breels?\b/i;
   const REELS_URL = /\/reels?(?:\/|\?|$)/i;
+  const REELS_PAGE_URL = /^https:\/\/(?:www\.)?facebook\.com\/reels?(?:\/|\?|$)/i;
   const MAX_TEXT_LENGTH = 1200;
+
+  function getRedirectUrl() {
+    const urls = Array.isArray(globalThis.HFR_REDIRECT_URLS)
+      ? globalThis.HFR_REDIRECT_URLS.filter(Boolean)
+      : [];
+
+    if (urls.length === 0) {
+      return "https://www.facebook.com/";
+    }
+
+    return urls[Math.floor(Math.random() * urls.length)];
+  }
+
+  function blockCurrentReelsPage() {
+    if (REELS_PAGE_URL.test(window.location.href)) {
+      window.location.replace(getRedirectUrl());
+    }
+  }
+
+  function blockReelsClick(event) {
+    const link = event.target && event.target.closest
+      ? event.target.closest('a[href*="/reel"]')
+      : null;
+
+    if (!link) {
+      return;
+    }
+
+    const url = new URL(link.getAttribute("href"), window.location.origin);
+
+    if (!REELS_PAGE_URL.test(url.href)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    window.open(getRedirectUrl(), "_blank", "noopener,noreferrer");
+  }
 
   function textOf(node) {
     return (node.innerText || node.textContent || "").trim();
@@ -176,6 +215,8 @@
   }
 
   function run() {
+    blockCurrentReelsPage();
+
     if (document.documentElement) {
       hideMatchingNodes(document.documentElement);
       lockFeedMedia(document.documentElement);
@@ -205,6 +246,10 @@
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", run, { once: true });
   }
+
+  window.addEventListener("click", blockReelsClick, true);
+  window.addEventListener("auxclick", blockReelsClick, true);
+  window.addEventListener("popstate", blockCurrentReelsPage);
 
   start();
 })();

@@ -2,7 +2,14 @@
   "manifest_version": 3,
   "name": "Hide Facebook Reels",
   "version": "1.0.0",
-  "description": "Hides Facebook Reels feed sections and the Reels tab on facebook.com.",
+  "description": "Hides Facebook Reels feed sections, blocks Reels pages, and locks feed media on facebook.com.",
+  "permissions": [
+    "tabs",
+    "webNavigation"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": [
@@ -13,6 +20,7 @@
         "styles.css"
       ],
       "js": [
+        "redirect-config.js",
         "content.js"
       ],
       "run_at": "document_start"
