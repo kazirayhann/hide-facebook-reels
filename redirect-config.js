@@ -14,13 +14,11 @@ globalThis.HFR_REDIRECT_URLS = [
   "https://www.youtube.com/results?search_query=ruqyah+shariah+quran+recitation"
 ];
 
-globalThis.HFR_FOCUS_CHECK_MINUTES = 1;
-globalThis.HFR_FOCUS_COOLDOWN_MINUTES = 1;
+globalThis.HFR_FOCUS_CHECK_MINUTES = 10;
+globalThis.HFR_FOCUS_COOLDOWN_MINUTES = 10;
 globalThis.HFR_FOCUS_LOCK_SECONDS = 10;
 globalThis.HFR_FOCUS_TARGETS = [
   "facebook.com",
-  "youtube.com",
-  "youtu.be"
 ];
 globalThis.HFR_FOCUS_MEDIA_URLS = [
   "https://youtu.be/iC-2t-FEbvk?si=HFHhChO8FPSWI_mQ",
