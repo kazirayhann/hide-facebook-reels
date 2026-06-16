@@ -1,0 +1,45 @@
+/* Hide obvious Reels navigation links before Facebook finishes rendering. */
+a[href*="/reel/"],
+a[href*="/reels/"],
+a[aria-label="Reels"],
+a[aria-label*="Reels"],
+div[aria-label="Reels"],
+div[aria-label*="Reels"] {
+  display: none !important;
+}
+
+/* Applied by content.js to larger feed containers and navigation items. */
+.hfr-hidden {
+  display: none !important;
+}
+
+.hfr-media-locked {
+  position: relative !important;
+  min-height: 180px !important;
+  overflow: hidden !important;
+  background: #111827 !important;
+  border-radius: 8px !important;
+}
+
+.hfr-media-locked img,
+.hfr-media-locked video,
+.hfr-media-locked picture,
+.hfr-media-locked canvas {
+  visibility: hidden !important;
+}
+
+.hfr-lock-message {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 2147483647 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 180px !important;
+  color: #ffffff !important;
+  background: #111827 !important;
+  font: 700 18px/1.2 Arial, sans-serif !important;
+  letter-spacing: 0 !important;
+  pointer-events: none !important;
+  text-align: center !important;
+}
