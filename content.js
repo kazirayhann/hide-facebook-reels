@@ -2,12 +2,13 @@
   "use strict";
 
   const HIDDEN_CLASS = "hfr-hidden";
-  const LOCKED_CLASS = "hfr-media-locked";
-  const LOCK_MESSAGE_CLASS = "hfr-lock-message";
   const REELS_TEXT = /\breels?\b/i;
+  const SPONSORED_TEXT = /^\s*sponsored\s*$/i;
+  const BIRTHDAYS_TEXT = /\bbirthdays\b/i;
   const REELS_URL = /\/reels?(?:\/|\?|$)/i;
   const REELS_PAGE_URL = /^https:\/\/(?:www\.)?facebook\.com\/reels?(?:\/|\?|$)/i;
   const MAX_TEXT_LENGTH = 1200;
+  let lastSeenUrl = window.location.href;
 
   function getRedirectUrl() {
     const urls = Array.isArray(globalThis.HFR_REDIRECT_URLS)
@@ -27,12 +28,39 @@
     }
   }
 
+  function checkForReelsRoute() {
+    if (window.location.href !== lastSeenUrl) {
+      lastSeenUrl = window.location.href;
+      blockCurrentReelsPage();
+    }
+  }
+
+  function patchHistoryNavigation() {
+    const originalPushState = history.pushState;
+    const originalReplaceState = history.replaceState;
+
+    history.pushState = function (...args) {
+      const result = originalPushState.apply(this, args);
+      queueMicrotask(checkForReelsRoute);
+      return result;
+    };
+
+    history.replaceState = function (...args) {
+      const result = originalReplaceState.apply(this, args);
+      queueMicrotask(checkForReelsRoute);
+      return result;
+    };
+  }
+
   function blockReelsClick(event) {
     const link = event.target && event.target.closest
-      ? event.target.closest('a[href*="/reel"]')
+      ? event.target.closest('a[href*="/reel"], a[href*="/reels"]')
       : null;
 
     if (!link) {
+      setTimeout(checkForReelsRoute, 0);
+      setTimeout(checkForReelsRoute, 250);
+      setTimeout(checkForReelsRoute, 1000);
       return;
     }
 
@@ -47,8 +75,15 @@
     window.open(getRedirectUrl(), "_blank", "noopener,noreferrer");
   }
 
+  function normalizeText(value) {
+    return value
+      .replace(/[\u200B-\u200D\uFEFF]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
   function textOf(node) {
-    return (node.innerText || node.textContent || "").trim();
+    return normalizeText(node.innerText || node.textContent || "");
   }
 
   function isReelsNode(node) {
@@ -86,8 +121,34 @@
     return null;
   }
 
+  function findSingleNavSlot(node) {
+    const navRoot = node.closest('[role="navigation"], [role="tablist"]');
+
+    if (!navRoot) {
+      return null;
+    }
+
+    let current = node.closest('[role="tab"], a[href], [aria-label*="Reel"], [aria-label*="reel"]') || node;
+    let best = current;
+
+    while (current.parentElement && current.parentElement !== navRoot) {
+      const parent = current.parentElement;
+      const linksAndTabs = parent.querySelectorAll('a[href], [role="tab"]').length;
+      const text = textOf(parent);
+
+      if (linksAndTabs <= 1 && text.length < 120) {
+        best = parent;
+      }
+
+      current = parent;
+    }
+
+    return best;
+  }
+
   function hideReelsTab(node) {
-    const navItem = closestVisibleContainer(node, [
+    const navSlot = findSingleNavSlot(node);
+    const navItem = navSlot || closestVisibleContainer(node, [
       '[role="tab"]',
       '[role="listitem"]',
       'a[role="link"]',
@@ -110,62 +171,109 @@
     hide(feedContainer || node);
   }
 
-  function isFeedMedia(node) {
-    if (!node || node.nodeType !== Node.ELEMENT_NODE) {
-      return false;
-    }
-
-    const tagName = node.tagName.toLowerCase();
-    const inFeed = Boolean(node.closest('[role="feed"], [data-pagelet^="FeedUnit"], article'));
-    const inStoryTray = Boolean(node.closest('[aria-label*="Stories"], [data-pagelet*="Stories"]'));
-    const inComposer = Boolean(node.closest('[role="textbox"], form, [aria-label*="Create"]'));
-
-    return (
-      inFeed &&
-      !inStoryTray &&
-      !inComposer &&
-      (tagName === "img" || tagName === "video")
-    );
-  }
-
-  function lockMedia(node) {
-    if (!isFeedMedia(node) || node.closest(`.${LOCKED_CLASS}`)) {
-      return;
-    }
-
-    const mediaLink = node.closest('a[href], [role="button"]') || node;
-    const mediaContainer = closestVisibleContainer(mediaLink, [
-      '[data-visualcompletion="media-vc-image"]',
-      '[data-pagelet^="FeedUnit"] a[href]',
-      'a[href]',
-      '[role="button"]',
-      "div"
-    ]);
-
-    if (!mediaContainer || mediaContainer.classList.contains(LOCKED_CLASS)) {
-      return;
-    }
-
-    mediaContainer.classList.add(LOCKED_CLASS);
-    mediaContainer.setAttribute("aria-label", "Locked media");
-
-    const message = document.createElement("div");
-    message.className = LOCK_MESSAGE_CLASS;
-    message.setAttribute("aria-hidden", "true");
-    message.textContent = "Locked";
-    mediaContainer.appendChild(message);
-  }
-
-  function lockFeedMedia(root) {
+  function hideSponsoredSection(root) {
     if (!root || root.nodeType !== Node.ELEMENT_NODE) {
       return;
     }
 
-    if (isFeedMedia(root)) {
-      lockMedia(root);
+    const candidates = [];
+
+    if (SPONSORED_TEXT.test(textOf(root))) {
+      candidates.push(root);
     }
 
-    root.querySelectorAll("img, video").forEach(lockMedia);
+    root.querySelectorAll("span, h2, h3, div[role='heading']").forEach((node) => {
+      if (SPONSORED_TEXT.test(textOf(node))) {
+        candidates.push(node);
+      }
+    });
+
+    root.querySelectorAll('[aria-label*="sponsored content"], [aria-label*="Sponsored content"]').forEach((node) => {
+      candidates.push(node);
+    });
+
+    for (const node of candidates) {
+      const section = findSponsoredSidebarBlock(node);
+
+      hide(section || node);
+    }
+  }
+
+  function hasSponsoredAdMarker(node) {
+    return Boolean(
+      node.querySelector(
+        [
+          'a[rel*="nofollow"]',
+          'a[href*="utm_source=fb"]',
+          'a[href*="fbclid="]',
+          '[aria-label*="sponsored content"]',
+          '[aria-label*="Sponsored content"]'
+        ].join(",")
+      )
+    );
+  }
+
+  function startsWithSponsored(node) {
+    return /^sponsored\b/i.test(textOf(node));
+  }
+
+  function containsBirthdays(node) {
+    return BIRTHDAYS_TEXT.test(textOf(node));
+  }
+
+  function findSponsoredAdCard(node) {
+    const link = node.closest('a[rel*="nofollow"], a[href*="utm_source=fb"], a[href*="fbclid="]');
+    const menu = node.closest('[aria-label*="sponsored content"], [aria-label*="Sponsored content"]');
+    let current = link || menu || node;
+    let best = null;
+
+    while (current && current !== document.body) {
+      if (current.getAttribute && current.getAttribute("role") === "complementary") {
+        break;
+      }
+
+      if (
+        current.closest('[role="complementary"]') &&
+        hasSponsoredAdMarker(current) &&
+        !containsBirthdays(current)
+      ) {
+        best = current;
+      }
+
+      current = current.parentElement;
+    }
+
+    return best;
+  }
+
+  function findSponsoredSidebarBlock(node) {
+    const adCard = findSponsoredAdCard(node);
+
+    if (adCard && !SPONSORED_TEXT.test(textOf(node))) {
+      return adCard;
+    }
+
+    let current = node;
+
+    while (current && current !== document.body) {
+      if (current.getAttribute && current.getAttribute("role") === "complementary") {
+        break;
+      }
+
+      if (
+        current.parentElement &&
+        current.closest('[role="complementary"]') &&
+        startsWithSponsored(current) &&
+        hasSponsoredAdMarker(current) &&
+        !containsBirthdays(current)
+      ) {
+        return current;
+      }
+
+      current = current.parentElement;
+    }
+
+    return adCard;
   }
 
   function hideMatchingNodes(root) {
@@ -219,7 +327,7 @@
 
     if (document.documentElement) {
       hideMatchingNodes(document.documentElement);
-      lockFeedMedia(document.documentElement);
+      hideSponsoredSection(document.documentElement);
     }
   }
 
@@ -227,7 +335,7 @@
     for (const mutation of mutations) {
       for (const node of mutation.addedNodes) {
         hideMatchingNodes(node);
-        lockFeedMedia(node);
+        hideSponsoredSection(node);
       }
     }
   });
@@ -249,7 +357,9 @@
 
   window.addEventListener("click", blockReelsClick, true);
   window.addEventListener("auxclick", blockReelsClick, true);
-  window.addEventListener("popstate", blockCurrentReelsPage);
+  window.addEventListener("popstate", checkForReelsRoute);
+  window.addEventListener("hashchange", checkForReelsRoute);
 
+  patchHistoryNavigation();
   start();
 })();

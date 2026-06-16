@@ -1,6 +1,6 @@
 # Hide Facebook Reels
 
-A small Chrome extension that hides Facebook Reels sections in the feed, hides the Reels tab/link from Facebook navigation, blocks Reels page navigation, and locks feed photos/videos behind a `Locked` message.
+A small Chrome extension that hides Facebook Reels sections in the feed, hides the Reels tab/link from Facebook navigation, blocks Reels page navigation, and removes Sponsored sidebar sections.
 
 ## Random redirect URLs
 
@@ -28,7 +28,7 @@ When a Facebook Reels URL opens, the extension blocks it and opens one random UR
 
 5. Open or refresh `https://www.facebook.com`.
 
-The extension runs at `document_start`, so it starts hiding Reels and blocking Reels navigation as soon as Facebook begins loading. Feed media is locked dynamically because Facebook renders posts after the first page load.
+The extension runs at `document_start`, so it starts hiding Reels, Sponsored sections, and blocking Reels navigation as soon as Facebook begins loading.
 
 ## Files
 
@@ -36,5 +36,4 @@ The extension runs at `document_start`, so it starts hiding Reels and blocking R
 - `redirect-config.js`: Dummy URLs used for random Reels redirects.
 - `background.js`: Blocks direct Reels page navigation.
 - `styles.css`: Early CSS rules for obvious Reels links.
-- `content.js`: Dynamic cleanup for Facebook's changing feed, navigation DOM, and feed media.
-
+- `content.js`: Dynamic cleanup for Facebook's changing feed, navigation DOM, and Sponsored sidebar.
