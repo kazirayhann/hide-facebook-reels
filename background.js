@@ -2,10 +2,14 @@ importScripts("redirect-config.js");
 
 const REELS_PAGE_URL = /^https:\/\/(?:www\.)?facebook\.com\/reels?(?:\/|\?|$)/i;
 const FOCUS_ALARM_NAME = "hfr-focus-check";
-const DEFAULT_FOCUS_CHECK_MINUTES = 15;
-const DEFAULT_FOCUS_COOLDOWN_MINUTES = 20;
 let lastFocusLockAt = 0;
 let focusLockUntil = 0;
+
+function getPositiveNumberConfig(name) {
+  const value = Number(globalThis[name]);
+
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
 
 function getRedirectUrl() {
   const urls = Array.isArray(globalThis.HFR_REDIRECT_URLS)
@@ -46,7 +50,7 @@ function isFocusTargetUrl(url) {
 
   const targets = Array.isArray(globalThis.HFR_FOCUS_TARGETS)
     ? globalThis.HFR_FOCUS_TARGETS
-    : ["facebook.com", "youtube.com", "youtu.be"];
+    : [];
 
   return targets.some((target) => (
     parsedUrl.hostname === target ||
@@ -64,7 +68,7 @@ function getLockPageUrl(tabUrl) {
 }
 
 function getFocusLockMs() {
-  const lockSeconds = Number(globalThis.HFR_FOCUS_LOCK_SECONDS) || 60;
+  const lockSeconds = getPositiveNumberConfig("HFR_FOCUS_LOCK_SECONDS");
 
   return lockSeconds * 1000;
 }
@@ -74,7 +78,12 @@ function isFocusLockActive() {
 }
 
 function shouldFocusLockNow() {
-  const cooldownMinutes = Number(globalThis.HFR_FOCUS_COOLDOWN_MINUTES) || DEFAULT_FOCUS_COOLDOWN_MINUTES;
+  const cooldownMinutes = getPositiveNumberConfig("HFR_FOCUS_COOLDOWN_MINUTES");
+
+  if (cooldownMinutes === 0) {
+    return false;
+  }
+
   const cooldownMs = cooldownMinutes * 60 * 1000;
 
   return Date.now() - lastFocusLockAt >= cooldownMs;
@@ -116,11 +125,28 @@ function blockFocusTargetDuringLock(tabId, url) {
   return true;
 }
 
-function setupFocusAlarm() {
-  const periodInMinutes = Number(globalThis.HFR_FOCUS_CHECK_MINUTES) || DEFAULT_FOCUS_CHECK_MINUTES;
+async function setupFocusAlarm() {
+  const periodInMinutes = getPositiveNumberConfig("HFR_FOCUS_CHECK_MINUTES");
 
+  if (periodInMinutes === 0) {
+    await chrome.alarms.clear(FOCUS_ALARM_NAME);
+    return;
+  }
+
+  const existingAlarm = await chrome.alarms.get(FOCUS_ALARM_NAME);
+  const earliestNextRun = Date.now() + ((periodInMinutes - 0.1) * 60 * 1000);
+
+  if (
+    existingAlarm &&
+    existingAlarm.periodInMinutes === periodInMinutes &&
+    existingAlarm.scheduledTime >= earliestNextRun
+  ) {
+    return;
+  }
+
+  await chrome.alarms.clear(FOCUS_ALARM_NAME);
   chrome.alarms.create(FOCUS_ALARM_NAME, {
-    delayInMinutes: 1,
+    delayInMinutes: periodInMinutes,
     periodInMinutes
   });
 }
